@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapa Tátil Virtual - ETEC de Taboão da Serra</title>
+<style>
+  :root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  *, *:before, *:after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body { margin: 0; background: #f2f2f2; color: #111111; font-family: -apple-system, "Segoe UI", Roboto, Arial, Helvetica, sans-serif; font-size: 18px; line-height: 1.5; }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+  .cartao { background: #ffffff; border: 1px solid #d9d9d9; border-radius: 20px; padding: 22px 20px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  h1 { font-size: 22px; line-height: 1.35; margin: 0 0 8px; font-weight: 700; }
+  h1:focus { outline: none; }
+  p { margin: 0 0 12px; }
+  .sub { color: #555555; font-size: 16px; }
+  .progresso { display: inline-block; background: #e6e6e6; color: #333333; font-size: 15px; font-weight: 600; padding: 4px 12px; border-radius: 999px; margin-bottom: 12px; }
+  .passo { font-size: 21px; font-weight: 600; line-height: 1.5; margin: 0; }
+  button { display: block; width: 100%; min-height: 56px; margin: 0 0 12px; padding: 12px 18px; font-size: 18px; font-weight: 600; font-family: inherit; text-align: center; border: 2px solid #111111; background: #ffffff; color: #111111; cursor: pointer; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  button.principal { background: #111111; color: #ffffff; }
+  button.secundario { background: #e9e9e9; border-color: #bdbdbd; }
+  button.audio { background: #e9e9e9; border-color: #777777; margin-bottom: 20px; }
+  button:focus-visible, button:hover { outline: 4px solid #888888; outline-offset: 2px; }
+  button:active { transform: scale(0.99); }
+  .separador { border: 0; border-top: 1px solid #d0d0d0; margin: 20px 0; }
+  .rodape button { min-height: 48px; font-size: 16px; border-color: #bdbdbd; color: #333333; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script>
+/* ============================================================
+   DADOS DO MAPA  (para mudar um caminho, edite os textos abaixo)
+   Cada caminho é uma lista de passos. Cada passo aparece e é
+   falado separadamente, com o botão "Continuar".
+   ============================================================ */
+
+var INICIO = "De onde você está, siga à esquerda e depois à direita.";
+
+// Rota que usa o elevador (andar escrito por extenso)
+function elevador(andar, resto) {
+  return [
+    INICIO,
+    "Entre na primeira porta à esquerda. Chame e espere o elevador.",
+    "Selecione o " + andar + " andar."
+  ].concat(resto);
+}
+
+var PASSOS_SECRETARIA = [
+  INICIO,
+  "Continue até achar o balcão da Secretaria de Serviços Acadêmicos. Lá, um funcionário pode ajudar você a resolver o que deseja."
+];
+
+// Perfis que recebem direto o caminho da Secretaria
+var MSG_PARA_OUTROS = [
+  INICIO,
+  "Continue até achar o balcão da Secretaria de Serviços Acadêmicos, para resolver o que deseja com um funcionário."
+];
+
+var LABS_E_SALAS = [
+  { nome: "Laboratório 1", passos: elevador("primeiro", ["Saindo do elevador, siga à direita.", "Entre na última porta da direita, a quinta, antes da porta para a escada."]) },
+  { nome: "Laboratório 2", passos: elevador("primeiro", ["Saindo do elevador, siga à direita.", "Entre na última porta da esquerda, a quarta, antes da porta para a escada."]) },
+  { nome: "Laboratório 3", passos: elevador("primeiro", ["Saindo do elevador, siga à esquerda.", "Depois, entre na primeira porta à esquerda."]) },
+  { nome: "Laboratório 4", passos: elevador("primeiro", ["Saindo do elevador, siga à esquerda.", "Depois, entre na segunda porta à direita."]) },
+  { nome: "Laboratório 5", passos: elevador("primeiro", ["Saindo do elevador, siga à esquerda.", "Depois, entre na última porta à esquerda, a segunda."]) },
+  { nome: "Sala de aula 1", passos: elevador("segundo", ["Saindo do elevador, siga à direita.", "Entre na última porta da direita, a segunda."]) },
+  { nome: "Sala de aula 2", passos: elevador("segundo", ["Saindo do elevador, siga à direita.", "Entre na penúltima porta da esquerda, a terceira."]) },
+  { nome: "Sala de aula 3", passos: elevador("segundo", ["Saindo do elevador, siga à direita.", "Entre na primeira porta da direita, depois do espaço dos banheiros."]) },
+  { nome: "Sala de aula 4", passos: elevador("segundo", ["Saindo do elevador, siga à direita.", "Entre na segunda porta da esquerda."]) },
+  { nome: "Sala de aula 5", passos: ["Atualmente, esta sala se encontra fechada, em desuso."] },
+  { nome: "Sala de aula 6", passos: ["Atualmente, esta sala se encontra fechada, em desuso."] },
+  { nome: "Sala de aula 7", passos: elevador("terceiro", ["Saindo do elevador, siga à direita.", "Entre na segunda porta da esquerda."]) },
+  { nome: "Sala de aula 8", passos: ["Atualmente, esta sala se encontra fechada, em desuso."] },
+  { nome: "Sala de aula 9", passos: elevador("terceiro", ["Saindo do elevador, siga à direita.", "Entre na primeira porta da esquerda."]) },
+  { nome: "Sala Maker", passos: elevador("segundo", ["Saindo do elevador, siga à direita.", "Entre na segunda porta da direita."]) }
+];
+
+function destinosBase(copa) {
+  return [
+    { nome: "Banheiro", passos: [
+      "De onde você está, dê meia volta e ande até achar o bebedouro.",
+      "Depois do bebedouro, vire à direita, depois à esquerda e, por fim, à direita.",
+      "A porta à frente, do lado direito, é o banheiro Feminino. A porta do lado esquerdo é o banheiro Masculino."
+    ] },
+    { nome: "Secretaria de Serviços Acadêmicos", passos: PASSOS_SECRETARIA },
+    { nome: "Secretaria de Serviços Financeiros", passos: [
+      INICIO,
+      "Passe o balcão e as escadas.",
+      "O segundo balcão é o da Secretaria de Serviços Financeiros, onde você pode resolver o que deseja com um funcionário."
+    ] },
+    { nome: "Laboratórios ou Salas de Aula", submenu: LABS_E_SALAS, pergunta: "Qual deles você procura?" },
+    { nome: "Copa", passos: copa },
+    { nome: "Cantina", passos: [
+      "De onde você está, dê meia volta e ande até achar o bebedouro.",
+      "Logo depois do bebedouro, fica o balcão da Cantina."
+    ] },
+    { nome: "Refeitório", passos: [
+      "De onde você está, siga à esquerda.",
+      "Na frente, dê poucos passos até achar a porta para o refeitório, onde ficam as mesas.",
+      "Do lado direito fica o carrinho para pegar o alimento durante os intervalos."
+    ] },
+    { nome: "Auditório", passos: [
+      INICIO,
+      "Passe o balcão, as escadas e o segundo balcão.",
+      "Entre na última porta à direita, a primeira."
+    ] },
+    { nome: "Quadra", passos: [
+      "A quadra é de difícil acesso. Por isso, vamos fazer o caminho até a Secretaria de Serviços Acadêmicos, onde você deve pedir ajuda a um funcionário para chegar à quadra.",
+      INICIO,
+      "Continue até achar o balcão da Secretaria de Serviços Acadêmicos. Peça auxílio a um funcionário."
+    ] },
+    { nome: "Biblioteca", passos: [
+      INICIO,
+      "Passe o balcão, as escadas e o segundo balcão.",
+      "Entre na última porta à esquerda, a segunda."
+    ] },
+    { nome: "Anfiteatro", passos: elevador("quarto", [
+      "Saindo do elevador, siga à esquerda.",
+      "Entre na porta à frente.",
+      "Siga para a direita e depois vá para a esquerda."
+    ]) },
+    { nome: "Coordenação", passos: elevador("segundo", [
+      "Saindo do elevador, siga à direita.",
+      "Entre na última porta da esquerda, a quarta."
+    ]) }
+  ];
+}
+
+var COPA_ALUNO = elevador("primeiro", ["Saindo do elevador, siga à esquerda.", "Depois, entre na primeira porta à direita."]);
+var COPA_PROFESSOR = elevador("primeiro", ["Saindo do elevador, siga à direita.", "Entre na penúltima porta da esquerda, a terceira."]);
+
+var EXTRAS_PROFESSOR = [
+  { nome: "Superintendência", passos: elevador("primeiro", ["Saindo do elevador, siga à direita.", "Entre na primeira porta da esquerda."]) },
+  { nome: "Sala dos professores", passos: elevador("primeiro", ["Saindo do elevador, siga à direita.", "Entre na segunda porta da esquerda."]) },
+  { nome: "Coordenação de laboratório", passos: elevador("primeiro", ["Saindo do elevador, siga à direita.", "Entre na terceira porta da direita."]) },
+  { nome: "Coordenação pedagógica", passos: elevador("primeiro", ["Saindo do elevador, siga à direita.", "Entre na segunda porta da direita."]) },
+  { nome: "Sala técnica", passos: [INICIO, "Entre na segunda porta à esquerda."] }
+];
+
+var PERFIS = ["Aluno", "Professor", "Visitante", "Parente de algum aluno", "Outro"];
+
+/* ============================================================
+   FUNCIONAMENTO
+   ============================================================ */
+
+var app = document.getElementById("app");
+var audioLigado = true;
+var AVISO_AUDIO = "Caso você use o leitor de tela, você pode desligar o áudio da página no botão Desligar áudio da página, no topo da tela.";
+var avisoJaFalado = false;
+var cartaoAtual = null;
+var estado = { perfil: null, lista: null, titulo: "", item: null, passos: null, i: 0 };
+
+function falar(texto) {
+  if (!audioLigado || !("speechSynthesis" in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(texto);
+    u.lang = "pt-BR";
+    u.rate = 0.9;
+    var vozes = window.speechSynthesis.getVoices();
+    for (var k = 0; k < vozes.length; k++) {
+      if (vozes[k].lang && vozes[k].lang.toLowerCase().replace("_", "-") === "pt-br") { u.voice = vozes[k]; break; }
+    }
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function limpar() {
+  app.innerHTML = "";
+  cartaoAtual = null;
+  var b = document.createElement("button");
+  b.type = "button";
+  b.className = "audio";
+  b.textContent = audioLigado ? "Desligar áudio da página" : "Ligar áudio da página";
+  b.addEventListener("click", function () {
+    audioLigado = !audioLigado;
+    if (!audioLigado && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    tela_atual();
+  });
+  app.appendChild(b);
+}
+
+function titulo(texto) {
+  var c = document.createElement("div");
+  c.className = "cartao";
+  app.appendChild(c);
+  cartaoAtual = c;
+  var h = document.createElement("h1");
+  h.textContent = texto;
+  h.tabIndex = -1;
+  c.appendChild(h);
+  return h;
+}
+
+function paragrafo(texto, classe) {
+  var p = document.createElement("p");
+  p.textContent = texto;
+  if (classe) p.className = classe;
+  (cartaoAtual || app).appendChild(p);
+  return p;
+}
+
+function botao(texto, classe, aoClicar, destino) {
+  var b = document.createElement("button");
+  b.type = "button";
+  b.textContent = texto;
+  if (classe) b.className = classe;
+  b.addEventListener("click", aoClicar);
+  (destino || cartaoAtual || app).appendChild(b);
+  return b;
+}
+
+function rodape(textoRepetir) {
+  var hr = document.createElement("hr");
+  hr.className = "separador";
+  app.appendChild(hr);
+  var div = document.createElement("div");
+  div.className = "rodape";
+  app.appendChild(div);
+  botao("Ouvir novamente", "secundario", function () { falar(textoRepetir); }, div);
+}
+
+var tela_atual = telaInicial;
+
+/* Tela 0: botão grande para liberar o áudio no celular */
+function telaInicial() {
+  tela_atual = telaInicial;
+  limpar();
+  var cartao = document.createElement("div");
+  cartao.className = "cartao";
+  app.appendChild(cartao);
+  cartaoAtual = cartao;
+  var h = document.createElement("h1");
+  h.textContent = "Mapa Tátil Virtual";
+  h.tabIndex = -1;
+  cartao.appendChild(h);
+  var p1 = document.createElement("p");
+  p1.className = "sub";
+  p1.textContent = "ETEC de Taboão da Serra";
+  cartao.appendChild(p1);
+  var p2 = document.createElement("p");
+  p2.textContent = AVISO_AUDIO;
+  cartao.appendChild(p2);
+  botao("COMEÇAR", "principal", telaPerfil);
+  falar("Mapa Tátil Virtual. " + AVISO_AUDIO + " Para começar, toque no botão COMEÇAR.");
+  h.focus();
+}
+
+/* Tela 1: perfil */
+function telaPerfil() {
+  tela_atual = telaPerfil;
+  limpar();
+  var fala = "Bem-vindo ao mapa tátil virtual da escola ETEC de Taboão da Serra. Primeiramente, qual o seu perfil?";
+  var cartao = document.createElement("div");
+  cartao.className = "cartao";
+  app.appendChild(cartao);
+  cartaoAtual = cartao;
+  var h = document.createElement("h1");
+  h.textContent = fala;
+  h.tabIndex = -1;
+  cartao.appendChild(h);
+  PERFIS.forEach(function (p) {
+    botao(p, "", function () { escolherPerfil(p); });
+  });
+  var repetir = fala + " As opções são: " + PERFIS.join(", ") + ".";
+  rodape(repetir);
+  if (!avisoJaFalado) {
+    avisoJaFalado = true;
+    falar(AVISO_AUDIO + " " + repetir);
+  } else {
+    falar(repetir);
+  }
+  h.focus();
+}
+
+function escolherPerfil(p) {
+  estado.perfil = p;
+  if (p === "Aluno") {
+    estado.lista = destinosBase(COPA_ALUNO);
+    telaDestinos();
+  } else if (p === "Professor") {
+    estado.lista = destinosBase(COPA_PROFESSOR).concat(EXTRAS_PROFESSOR);
+    telaDestinos();
+  } else {
+    // Visitante, Parente de algum aluno, Outro
+    estado.item = { nome: "Secretaria de Serviços Acadêmicos" };
+    estado.passos = MSG_PARA_OUTROS;
+    estado.i = 0;
+    estado.voltar = telaPerfil;
+    telaPasso();
+  }
+}
+
+/* Tela 2: destinos (e submenu de laboratórios/salas) */
+function telaDestinos() {
+  tela_atual = telaDestinos;
+  mostrarLista(estado.lista, "Onde você pretende ir?", telaPerfil);
+}
+
+function mostrarLista(lista, pergunta, aoVoltar) {
+  limpar();
+  var h = titulo(pergunta);
+  var nomes = [];
+  lista.forEach(function (d) {
+    nomes.push(d.nome);
+    botao(d.nome, "", function () { escolherDestino(d, lista, pergunta, aoVoltar); });
+  });
+  botao("Voltar", "secundario", aoVoltar);
+  var fala = pergunta + " As opções são: " + nomes.join(", ") + ".";
+  rodape(fala);
+  falar(fala);
+  h.focus();
+}
+
+function escolherDestino(d, lista, pergunta, aoVoltar) {
+  if (d.submenu) {
+    tela_atual = function () { mostrarLista(d.submenu, d.pergunta, function () { telaDestinos(); }); };
+    // ao escolher item do submenu, o botão "Voltar do passo" volta ao submenu
+    var submenuFn = tela_atual;
+    mostrarListaSub(d, submenuFn);
+  } else {
+    estado.item = d;
+    estado.passos = d.passos;
+    estado.i = 0;
+    estado.voltar = telaDestinos;
+    telaPasso();
+  }
+}
+
+function mostrarListaSub(d, submenuFn) {
+  limpar();
+  var h = titulo(d.pergunta);
+  var nomes = [];
+  d.submenu.forEach(function (s) {
+    nomes.push(s.nome);
+    botao(s.nome, "", function () {
+      estado.item = s;
+      estado.passos = s.passos;
+      estado.i = 0;
+      estado.voltar = submenuFn;
+      telaPasso();
+    });
+  });
+  botao("Voltar", "secundario", telaDestinos);
+  var fala = d.pergunta + " As opções são: " + nomes.join(", ") + ".";
+  rodape(fala);
+  falar(fala);
+  h.focus();
+}
+
+/* Tela 3: passo a passo com botão Continuar */
+function telaPasso() {
+  tela_atual = telaPasso;
+  limpar();
+  var total = estado.passos.length;
+  var n = estado.i + 1;
+  var h = titulo("Caminho até: " + estado.item.nome);
+  if (total > 1) paragrafo("Passo " + n + " de " + total, "progresso");
+  var texto = estado.passos[estado.i];
+  var p = paragrafo(texto, "passo");
+  p.setAttribute("role", "status");
+  var ultimo = (estado.i === total - 1);
+
+  if (!ultimo) {
+    botao("Continuar", "principal", function () { estado.i++; telaPasso(); });
+  } else {
+    botao("Cheguei ao destino", "principal", telaFinal);
+  }
+  if (estado.i > 0) {
+    botao("Passo anterior", "", function () { estado.i--; telaPasso(); });
+  }
+  botao("Escolher outro destino", "secundario", function () {
+    if (estado.perfil === "Aluno" || estado.perfil === "Professor") telaDestinos(); else telaPerfil();
+  });
+  var fala = (total > 1 ? "Passo " + n + " de " + total + ". " : "") + texto +
+             (ultimo ? "" : " Quando terminar, toque em Continuar.");
+  rodape(fala);
+  falar(fala);
+  h.focus();
+}
+
+/* Tela 4: fim */
+function telaFinal() {
+  tela_atual = telaFinal;
+  limpar();
+  var fala = "Você chegou ao seu destino. Deseja ir para outro lugar?";
+  var h = titulo(fala);
+  botao("Sim, escolher outro destino", "principal", function () {
+    if (estado.perfil === "Aluno" || estado.perfil === "Professor") telaDestinos(); else telaPerfil();
+  });
+  botao("Voltar ao início", "", telaInicial);
+  rodape(fala);
+  falar(fala);
+  h.focus();
+}
+
+// Carrega as vozes do aparelho (alguns navegadores precisam disso)
+if ("speechSynthesis" in window) { window.speechSynthesis.getVoices(); }
+telaInicial();
+</script>
+</body>
+</html>
